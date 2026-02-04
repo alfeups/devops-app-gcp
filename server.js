@@ -112,5 +112,4 @@ process.on('SIGTERM', () => {
   // Força saída se não fechar em 15s (evita container zumbi)
   setTimeout(() => process.exit(1), 15000);
 });
-
 }
