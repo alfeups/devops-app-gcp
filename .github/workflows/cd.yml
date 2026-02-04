@@ -8,7 +8,7 @@ on:
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   GKE_CLUSTER: ${{ secrets.GKE_CLUSTER }}
-  GKE_ZONE: ${{ secrets.GKE_ZONE }}
+  GKE_REGION: ${{ secrets.GKE_REGION }}
   DEPLOYMENT_NAME: devops-app
   IMAGE: devops-app-gcp
   NAMESPACE: devops-app
@@ -41,7 +41,7 @@ jobs:
       - name: Get GKE credentials
         run: |
           gcloud container clusters get-credentials ${{ secrets.GKE_CLUSTER }} \
-            --zone=${{ secrets.GKE_ZONE }} \
+            --region=${{ secrets.GKE_REGION }} \
             --project=${{ secrets.GCP_PROJECT_ID }}
 
       - name: Build Docker image
@@ -58,11 +58,21 @@ jobs:
 
       - name: Deploy to GKE
         run: |
+          # Aplicar manifestos (cria recursos se não existirem)
+          kubectl apply -f k8s/namespace.yaml
+          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/service.yaml
+          
+          # Atualizar imagem do deployment
           kubectl set image deployment/${{ env.DEPLOYMENT_NAME }} \
-            ${{ env.DEPLOYMENT_NAME }}=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/devops-app-gcp/${{ env.IMAGE }}:${{ github.sha }} \
+            devops-app=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/devops-app-gcp/${{ env.IMAGE }}:${{ github.sha }} \
             -n ${{ env.NAMESPACE }}
+          
+          # Aguardar rollout
           kubectl rollout status deployment/${{ env.DEPLOYMENT_NAME }} \
             -n ${{ env.NAMESPACE }} --timeout=300s
+          
+          # Ver status
           kubectl get pods -n ${{ env.NAMESPACE }} -l app=${{ env.DEPLOYMENT_NAME }}
 
       - name: Run smoke tests
